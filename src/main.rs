@@ -1,4 +1,7 @@
+use core::panic;
 use std::{cmp::min, ops::Div};
+
+use image::GenericImageView;
 
 type Buffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 type Kernel = Vec<Vec<f64>>;
@@ -24,7 +27,7 @@ fn main() {
     let buffer = image_to_buffer(img);
     let buffer = luminance_gray_scale(buffer);
     let buffer = naive_convolution(buffer, generate_blur_kernel_naive(1., 3));
-    let edge_detected = naive_edge_detection_sobel(&buffer);
+    let edge_detected = naive_edge_detection_sobel(&buffer, &original);
 
     let _ = edge_detected.save("./src/edge_detection.png");
 }
@@ -75,9 +78,9 @@ fn naive_gray_scale(mut buffer: Buffer) -> Buffer {
     buffer
 }
 
-fn edge_detection_canny_naive() {}
+fn edge_detection_canny_naive() {>}
 
-fn naive_edge_detection_sobel(buffer: &Buffer) -> Buffer {
+fn naive_edge_detection_sobel(buffer: &Buffer, original: &image::DynamicImage) -> Buffer {
     let horizontal_kernel = [vec![1., 2., 1.], vec![0., 0., 0.], vec![-1., -2., -1.]];
     let vertical_kernel = [vec![1., 0., -1.], vec![2., 0., -2.], vec![1., 0., -1.]];
     let kernel_dimension = get_dimension(&horizontal_kernel);
@@ -86,37 +89,55 @@ fn naive_edge_detection_sobel(buffer: &Buffer) -> Buffer {
     //TODO: dimension check. should be odd
 
     let padding = 3;
-    for pixel_y in padding..buffer.height() - padding {
-        for pixel_x in padding..buffer.width() - padding {
+    let kernel_middle = kernel_dimension.width.wrapping_div(2);
+    for pixel_y in 0..buffer.height() {
+        for pixel_x in 0..buffer.width() {
             let mut horizontal_gradient: f64 = 0.;
             let mut vertical_gradient: f64 = 0.;
 
+            if pixel_y < padding
+                || pixel_y >= buffer.height() - padding
+                || pixel_x < padding
+                || pixel_x >= buffer.width() - padding
+            {
+                let pixel = new_buffer.get_pixel_mut(pixel_x, pixel_y);
+                pixel.0[0] = 0;
+                pixel.0[1] = 0;
+                pixel.0[2] = 0;
+
+                // let original_pixel = original.get_pixel(pixel_x, pixel_y);
+                // pixel.0[0] = original_pixel.0[0];
+                // pixel.0[1] = original_pixel.0[1];
+                // pixel.0[2] = original_pixel.0[2];
+
+                continue;
+            }
+
             for kernel_y in 0..kernel_dimension.height {
                 for kernel_x in 0..kernel_dimension.width {
-                    let kernel_middle = kernel_dimension.width.wrapping_div(2);
-                    let get_y: i64 = pixel_y as i64 + kernel_y as i64;
-                    let get_x: i64 = pixel_x as i64 + kernel_x as i64;
+                    let get_y = pixel_y as usize + kernel_y;
+                    let get_x = pixel_x as usize + kernel_x;
 
-                    if get_y < kernel_middle as i64 || get_y >= buffer.height().into() {
-                        break;
+                    if get_y < kernel_middle || get_y >= buffer.height() as usize {
+                        continue;
                     }
 
-                    if get_x < kernel_middle as i64 || get_x >= buffer.width().into() {
-                        break;
+                    if get_x < kernel_middle || get_x >= buffer.width() as usize {
+                        continue;
                     }
 
-                    let pixel_rgba = buffer
+                    let pixel_value = buffer
                         .get_pixel(
-                            (get_x - kernel_middle as i64) as u32,
-                            (get_y - kernel_middle as i64) as u32,
+                            (get_x - kernel_middle) as u32,
+                            (get_y - kernel_middle) as u32,
                         )
-                        .0;
+                        .0[0] as f64;
 
                     let horizontal_kernel_value = horizontal_kernel[kernel_y][kernel_x];
                     let vertical_kernel_value = vertical_kernel[kernel_y][kernel_x];
 
-                    horizontal_gradient += horizontal_kernel_value * pixel_rgba[0] as f64;
-                    vertical_gradient += vertical_kernel_value * pixel_rgba[0] as f64;
+                    horizontal_gradient += horizontal_kernel_value * pixel_value;
+                    vertical_gradient += vertical_kernel_value * pixel_value;
                 }
             }
 
@@ -126,16 +147,11 @@ fn naive_edge_detection_sobel(buffer: &Buffer) -> Buffer {
             if total_gradient > 90. {
                 pixel.0[0] = 234;
                 pixel.0[1] = 234;
-                pixel.0[2] = 0;
+                pixel.0[2] = 234;
             } else {
                 pixel.0[0] = 0;
                 pixel.0[1] = 0;
                 pixel.0[2] = 0;
-
-                // let original_pixel = buffer.get_pixel(pixel_x, pixel_y);
-                // pixel.0[0] = original_pixel.0[0];
-                // pixecl.0[1] = original_pixel.0[1];
-                // pixel.0[2] = original_pixel.0[2];
             }
         }
     }
