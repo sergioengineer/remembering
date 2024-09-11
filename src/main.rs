@@ -78,7 +78,7 @@ fn naive_gray_scale(mut buffer: Buffer) -> Buffer {
     buffer
 }
 
-fn edge_detection_canny_naive() {>}
+fn edge_detection_canny_naive() {}
 
 fn naive_edge_detection_sobel(buffer: &Buffer, original: &image::DynamicImage) -> Buffer {
     let horizontal_kernel = [vec![1., 2., 1.], vec![0., 0., 0.], vec![-1., -2., -1.]];
